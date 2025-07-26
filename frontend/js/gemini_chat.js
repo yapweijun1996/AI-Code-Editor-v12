@@ -17,8 +17,16 @@ export const GeminiChat = {
     rateLimit: 5000,
     rootDirectoryHandle: null,
 
-    initialize(rootDirectoryHandle) {
+    async initialize(rootDirectoryHandle) {
         this.rootDirectoryHandle = rootDirectoryHandle;
+
+        const savedModel = await DbManager.getSetting('selectedModel');
+        if (savedModel) {
+            const modelSelector = document.getElementById('model-selector');
+            if (modelSelector) {
+                modelSelector.value = savedModel;
+            }
+        }
     },
 
     async _startChat(history = []) {
@@ -32,15 +40,17 @@ export const GeminiChat = {
             const modelName = document.getElementById('model-selector').value;
             const mode = document.getElementById('agent-mode-selector').value;
 
+            await DbManager.saveSetting('selectedModel', modelName);
+
             const baseTools = {
                 functionDeclarations: [
-                    { name: 'create_file', description: "Creates a new file. CRITICAL: File paths must be relative to the project root. NEVER include the root folder's name (e.g., 'test001') in the path. For a file 'script.js' inside 'test001', the path is just 'script.js'.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' }, content: { type: 'STRING' } }, required: ['filename', 'content'] } },
-                    { name: 'delete_file', description: "Deletes a file. CRITICAL: File paths must be relative to the project root. NEVER include the root folder's name in the path.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
-                    { name: 'create_folder', description: "Creates a new folder. CRITICAL: Folder paths must be relative to the project root. NEVER include the root folder's name in the path.", parameters: { type: 'OBJECT', properties: { folder_path: { type: 'STRING' } }, required: ['folder_path'] } },
-                    { name: 'delete_folder', description: 'Deletes a folder and all of its contents recursively.', parameters: { type: 'OBJECT', properties: { folder_path: { type: 'STRING' } }, required: ['folder_path'] } },
-                    { name: 'rename_folder', description: 'Renames a folder. Use this tool for renaming directories.', parameters: { type: 'OBJECT', properties: { old_folder_path: { type: 'STRING' }, new_folder_path: { type: 'STRING' } }, required: ['old_folder_path', 'new_folder_path'] } },
-                    { name: 'rename_file', description: 'Renames a file. Use this tool for renaming files, not directories.', parameters: { type: 'OBJECT', properties: { old_path: { type: 'STRING' }, new_path: { type: 'STRING' } }, required: ['old_path', 'new_path'] } },
-                    { name: 'read_file', description: "Reads the content of an existing file. CRITICAL: File paths must be relative to the project root. NEVER include the root folder's name in the path. For a file 'script.js' inside a folder 'src', the path is 'src/script.js'.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
+                    { name: 'create_file', description: "Creates a new file. CRITICAL: Do NOT include the root directory name in the path. Example: To create 'app.js' in the root, the path is 'app.js', NOT 'my-project/app.js'.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' }, content: { type: 'STRING' } }, required: ['filename', 'content'] } },
+                    { name: 'delete_file', description: "Deletes a file. CRITICAL: Do NOT include the root directory name in the path.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
+                    { name: 'create_folder', description: "Creates a new folder. CRITICAL: Do NOT include the root directory name in the path.", parameters: { type: 'OBJECT', properties: { folder_path: { type: 'STRING' } }, required: ['folder_path'] } },
+                    { name: 'delete_folder', description: "Deletes a folder and all its contents. CRITICAL: Do NOT include the root directory name in the path.", parameters: { type: 'OBJECT', properties: { folder_path: { type: 'STRING' } }, required: ['folder_path'] } },
+                    { name: 'rename_folder', description: "Renames a folder. CRITICAL: Do NOT include the root directory name in the path.", parameters: { type: 'OBJECT', properties: { old_folder_path: { type: 'STRING' }, new_folder_path: { type: 'STRING' } }, required: ['old_folder_path', 'new_folder_path'] } },
+                    { name: 'rename_file', description: "Renames a file. CRITICAL: Do NOT include the root directory name in the path.", parameters: { type: 'OBJECT', properties: { old_path: { type: 'STRING' }, new_path: { type: 'STRING' } }, required: ['old_path', 'new_path'] } },
+                    { name: 'read_file', description: "Reads a file's content. CRITICAL: Do NOT include the root directory name in the path. Example: To read 'src/app.js', the path is 'src/app.js'.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
                     { name: 'read_url', description: 'Reads and extracts the main content and all links from a given URL. The result will be a JSON object with "content" and "links" properties.', parameters: { type: 'OBJECT', properties: { url: { type: 'STRING' } }, required: ['url'] } },
                     { name: 'get_open_file_content', description: 'Gets the content of the currently open file in the editor.' },
                     { name: 'get_selected_text', description: 'Gets the text currently selected by the user in the editor.' },
@@ -51,10 +61,10 @@ export const GeminiChat = {
                     { name: 'run_terminal_command', description: 'Executes a shell command on the backend and returns the output.', parameters: { type: 'OBJECT', properties: { command: { type: 'STRING' } }, required: ['command'] } },
                     { name: 'build_or_update_codebase_index', description: 'Scans the entire codebase to build a searchable index. Slow, run once per session.' },
                     { name: 'query_codebase', description: 'Searches the pre-built codebase index.', parameters: { type: 'OBJECT', properties: { query: { type: 'STRING' } }, required: ['query'] } },
-                    { name: 'get_file_history', description: 'Retrieves the git commit history for a specific file.', parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
-                    { name: 'rewrite_file', description: "Rewrites a file with new content. Overwrites the entire existing file content. IMPORTANT: Use for all file modifications instead of apply_diff.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' }, content: { type: 'STRING' } }, required: ['filename', 'content'] } },
-                    { name: 'format_code', description: 'Formats a specific file using Prettier.', parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
-                    { name: 'analyze_code', description: "Analyzes the structure of a JavaScript file (.js) using an AST parser. CRITICAL: Use this tool for analyzing JavaScript code structure. For reading other file types like HTML, CSS, or plain text, use the 'read_file' tool instead.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
+                    { name: 'get_file_history', description: "Gets a file's git history. CRITICAL: Do NOT include the root directory name in the path.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
+                    { name: 'rewrite_file', description: "Rewrites a file with new content. CRITICAL: Do NOT include the root directory name in the path.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' }, content: { type: 'STRING' } }, required: ['filename', 'content'] } },
+                    { name: 'format_code', description: "Formats a file with Prettier. CRITICAL: Do NOT include the root directory name in the path.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
+                    { name: 'analyze_code', description: "Analyzes a JavaScript file's structure. CRITICAL: Do NOT include the root directory name in the path.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
                 ],
             };
             let allTools = [baseTools];
@@ -71,31 +81,39 @@ export const GeminiChat = {
 
 # CORE METHODOLOGY
 
-**1. REQUEST DECONSTRUCTION & PLANNING:**
+**1. FILE PATHS - CRITICAL RULE**
+- **You MUST NOT include the top-level project folder name in file paths.** The file system is already rooted in the project directory.
+- **CORRECT:** To access \`index.html\` in the root, the path is 'index.html'.
+- **INCORRECT:** \`test001/index.html\`
+- **CORRECT:** To access \`app.js\` in a \`src\` folder, the path is 'src/app.js'.
+- **INCORRECT:** \`test001/src/app.js\`
+- **YOU MUST FOLLOW THIS RULE. FAILURE TO DO SO WILL CAUSE ALL FILE OPERATIONS TO FAIL.**
+
+**2. REQUEST DECONSTRUCTION & PLANNING:**
 - Your primary task is to deconstruct user requests into a sequence of actionable steps.
 - Users will often make vague requests (e.g., "review the code," "fix the bug"). You MUST interpret these goals and create a concrete, multi-step plan using the available tools.
 - **Example Plan:** If the user says "review all files," you should form a plan like: "1. Call 'get_project_structure' to list all files. 2. Call 'read_file' on each important file I discover. 3. Summarize my findings."
 - Announce your plan to the user before executing it.
 
-**2. ACTION & CONTEXT INTEGRATION:**
+**3. ACTION & CONTEXT INTEGRATION:**
 - **Contextual Awareness:** When a user gives a follow-up command like "read all of them" or "go into more detail," you MUST refer to the immediate preceding turns in the conversation to understand what "them" refers to. Use the URLs or file paths you provided in your last response as the context for the new command.
 - When a task requires multiple steps, you MUST use the output of the previous step as the input for the current step. For example, after using 'get_project_structure', use the list of files as input for your 'read_file' calls. Do not discard context.
 
-**3. POST-TOOL ANALYSIS:**
+**4. POST-TOOL ANALYSIS:**
 - After a tool executes, you MUST provide a thoughtful, analytical response.
 - **Summarize:** Briefly explain the outcome of the tool command.
 - **Analyze:** Explain what the result means in the context of your plan.
 - **Next Action:** State what you will do next and then call the appropriate tool.
 
-**4. URL HANDLING & RESEARCH:**
+**5. URL HANDLING & RESEARCH:**
 - **URL Construction Rule:** When you discover relative URLs (e.g., '/path/to/page'), you MUST convert them to absolute URLs by correctly combining them with the base URL of the source page. CRITICAL: Ensure you do not introduce errors like double slashes ('//') or invalid characters ('.com./').
 - **Autonomous Deep Dive:** When you read a URL and it contains more links, you must autonomously select the single most relevant link to continue the research. State your choice and proceed when commanded. Do not ask the user which link to choose.
 - **CRITICAL: Proactive URL Reading from Search:** After a \`duckduckgo_search\`, you MUST analyze the search results. If a result appears relevant, you MUST immediately and proactively use the \`read_url\` tool on that URL to gather more details. This is not optional. Do not ask for permission.
 
-**5. MULTI-URL GATHERING:**
+**6. MULTI-URL GATHERING:**
 - If a user asks you to read multiple URLs (e.g., "read all related URLs," "get information from these links"), you MUST use the \`read_url\` tool for each URL you have identified in the conversation.
 - After gathering data from all URLs, synthesize the information into a single, cohesive response.
-**6. SYNTHESIS & REPORTING:**
+**7. SYNTHESIS & REPORTING:**
 - Your final output is not just data, but insight. After gathering information using tools, you MUST synthesize it.
 - **Comprehensive Answers:** Do not give short or superficial answers. Combine information from multiple sources (\`read_file\`, \`read_url\`, etc.) into a detailed, well-structured response.
 - **Analysis:** Explain what the information means. Identify key facts, draw connections, and provide a comprehensive overview. If asked for a "breakdown" or "detailed analysis," you are expected to generate a substantial, long-form response (e.g., 500-1000 words) if the gathered data supports it.

@@ -9,11 +9,12 @@ export const DbManager = {
         codeIndex: 'codeIndex',
         sessionState: 'sessionState',
         checkpoints: 'checkpoints',
+        settings: 'settings',
     },
     async openDb() {
         return new Promise((resolve, reject) => {
             if (this.db) return resolve(this.db);
-            const request = indexedDB.open(this.dbName, 6);
+            const request = indexedDB.open(this.dbName, 7);
             request.onerror = () => reject('Error opening IndexedDB.');
             request.onsuccess = (event) => {
                 this.db = event.target.result;
@@ -40,6 +41,9 @@ export const DbManager = {
                     this.stores.checkpoints,
                     { autoIncrement: true, keyPath: 'id' },
                 );
+                if (!db.objectStoreNames.contains(this.stores.settings)) {
+                    db.createObjectStore(this.stores.settings, { keyPath: 'id' });
+                }
             };
         });
     },
@@ -187,6 +191,29 @@ export const DbManager = {
                 .delete(id);
             request.onerror = () => reject('Error deleting checkpoint.');
             request.onsuccess = () => resolve();
+        });
+    },
+    async saveSetting(settingId, value) {
+        const db = await this.openDb();
+        return new Promise((resolve, reject) => {
+            const request = db
+                .transaction(this.stores.settings, 'readwrite')
+                .objectStore(this.stores.settings)
+                .put({ id: settingId, value: value });
+            request.onerror = () => reject('Error saving setting.');
+            request.onsuccess = () => resolve();
+        });
+    },
+    async getSetting(settingId) {
+        const db = await this.openDb();
+        return new Promise((resolve) => {
+            const request = db
+                .transaction(this.stores.settings, 'readonly')
+                .objectStore(this.stores.settings)
+                .get(settingId);
+            request.onerror = () => resolve(null);
+            request.onsuccess = () =>
+                resolve(request.result ? request.result.value : null);
         });
     },
 };

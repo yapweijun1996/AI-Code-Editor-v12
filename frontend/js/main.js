@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const checkpointsList = document.getElementById('checkpoints-list');
     const closeCheckpointsModalButton = checkpointsModal.querySelector('.close-button');
     const createCheckpointButton = document.getElementById('create-checkpoint-button');
+    const modelSelector = document.getElementById('model-selector');
 
     // --- State ---
     let rootDirectoryHandle = null;
@@ -64,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if ((await savedHandle.queryPermission({ mode: 'readwrite' })) === 'granted') {
             rootDirectoryHandle = savedHandle;
             await UI.refreshFileTree(rootDirectoryHandle, onFileSelect);
-            GeminiChat.initialize(rootDirectoryHandle);
+            await GeminiChat.initialize(rootDirectoryHandle);
 
             const savedState = await DbManager.getSessionState();
             if (savedState) {
@@ -130,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             rootDirectoryHandle = await window.showDirectoryPicker();
             await DbManager.saveDirectoryHandle(rootDirectoryHandle);
             await UI.refreshFileTree(rootDirectoryHandle, onFileSelect);
-            GeminiChat.initialize(rootDirectoryHandle);
+            await GeminiChat.initialize(rootDirectoryHandle);
         } catch (error) {
             console.error('Error opening directory:', error);
         }
@@ -153,7 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if ((await savedHandle.requestPermission({ mode: 'readwrite' })) === 'granted') {
                     rootDirectoryHandle = savedHandle;
                     await UI.refreshFileTree(rootDirectoryHandle, onFileSelect);
-                    GeminiChat.initialize(rootDirectoryHandle);
+                    await GeminiChat.initialize(rootDirectoryHandle);
                 } else {
                     alert('Permission to access the folder was denied.');
                 }
@@ -262,6 +263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (checkpoint && checkpoint.editorState) {
                 await Editor.restoreCheckpointState(checkpoint.editorState, rootDirectoryHandle, tabBarContainer);
                 await Editor.saveAllOpenFiles(); // Save all restored files to disk
+                await UI.refreshFileTree(rootDirectoryHandle, onFileSelect);
                 checkpointsModal.style.display = 'none';
                 alert(`Project state restored to checkpoint '${checkpoint.name}'.`);
             }
