@@ -34,10 +34,11 @@ The editor's architecture has been streamlined to use a local Node.js server, si
 *   **AST-Powered Code Analysis**: The AI can use the `analyze_code` tool to parse JavaScript code into an Abstract Syntax Tree (AST), enabling a deep, structural understanding of the code for more precise refactoring and analysis.
 *   **Multimodal Input**: The AI chat supports both text and image uploads, allowing you to ask questions about visual content.
 *   **Multiple Agent Modes**: Switch between different AI modes (`Code`, `Plan`, `Search`) to tailor the agent's behavior to your specific needs.
+*   **Persistent Model Selection**: The application remembers your chosen AI model across sessions, saving you from having to re-select it on every visit.
 *   **Project-Wide Checkpoint System**:
-    *   **Full Session Persistence**: The application automatically saves your entire workspace state—including all open files, their content, and the full chat history—to your browser's local storage. This state is seamlessly restored when you reload the page.
-    *   **True Project Snapshots**: Before the AI performs any action that modifies your files (like creating, rewriting, or deleting), it automatically creates a complete snapshot of your entire workspace. This is not just a backup of one file, but a commit-like record of every open file's content at that moment.
-    *   **Full Restore Capabilities**: The "Checkpoints" manager now allows you to restore the entire project to a previous state. When you restore a checkpoint, the application will perfectly reset your workspace to how it was, closing any new files and re-opening any files that were part of the snapshot.
+    *   **Automatic Session Restore**: Your entire workspace—including all open files, their content, and the full chat history—is automatically saved to your browser's IndexedDB. This state is seamlessly restored when you reload the page.
+    *   **Manual & Automatic Snapshots**: Create manual, named checkpoints of your entire workspace at any time. The system also automatically creates a timestamped checkpoint before the AI performs any file modification, ensuring you can always revert to a safe state.
+    *   **Full Workspace Restoration**: Restore the entire project to a previous state from the Checkpoints manager. This action reverts all files to their snapshotted content and re-opens the exact set of files that were active at that time.
 
 ---
 
