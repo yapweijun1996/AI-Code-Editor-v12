@@ -18,6 +18,23 @@ async function executeTool(toolCall, rootDirectoryHandle) {
     ) {
         throw new Error("No project folder is open. Ask the user to open one.");
     }
+    // --- Automatic Checkpoint Interception ---
+    if (['create_file', 'delete_file', 'rewrite_file', 'rename_file', 'create_folder', 'delete_folder', 'rename_folder'].includes(toolName)) {
+        try {
+            const editorState = Editor.getEditorState();
+            if (editorState.openFiles.length > 0) {
+                const checkpointData = {
+                    name: `Auto-Checkpoint @ ${new Date().toLocaleString()}`,
+                    editorState: editorState,
+                    timestamp: Date.now(),
+                };
+                await DbManager.saveCheckpoint(checkpointData);
+                // We won't notify the user for automatic checkpoints to keep the chat clean
+            }
+        } catch (error) {
+            console.error('Failed to create automatic checkpoint:', error);
+        }
+    }
 
     switch (toolName) {
         case 'get_project_structure': {
@@ -28,7 +45,11 @@ async function executeTool(toolCall, rootDirectoryHandle) {
         case 'read_file': {
             const fileHandle = await FileSystem.getFileHandleFromPath(rootDirectoryHandle, parameters.filename);
             const file = await fileHandle.getFile();
-            const content = await file.text();
+            let content = await file.text();
+            const MAX_LENGTH = 30000; // Set a character limit for file reads
+            if (content.length > MAX_LENGTH) {
+                content = content.substring(0, MAX_LENGTH) + `\n\n... (file content truncated because it was too long)`;
+            }
             await Editor.openFile(fileHandle, parameters.filename, document.getElementById('tab-bar'));
             return { content: content };
         }

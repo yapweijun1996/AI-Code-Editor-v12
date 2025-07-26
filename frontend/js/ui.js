@@ -179,6 +179,49 @@ export function updateImagePreview(imagePreviewContainer, uploadedImage, clearIm
         imagePreviewContainer.style.display = 'none';
     }
 }
+
+export function renderCheckpoints(checkpointsListContainer, checkpoints) {
+    checkpointsListContainer.innerHTML = '';
+    if (!checkpoints || checkpoints.length === 0) {
+        checkpointsListContainer.innerHTML = '<p>No checkpoints have been saved yet.</p>';
+        return;
+    }
+
+    // Sort checkpoints by timestamp, newest first
+    checkpoints.sort((a, b) => b.timestamp - a.timestamp);
+
+    checkpoints.forEach(cp => {
+        const entry = document.createElement('div');
+        entry.className = 'checkpoint-entry';
+        entry.innerHTML = `
+            <span class="checkpoint-name" title="${cp.name}">${cp.name}</span>
+            <span class="checkpoint-file" title="${cp.filePath}">${cp.filePath}</span>
+            <span class="checkpoint-timestamp">${new Date(cp.timestamp).toLocaleString()}</span>
+            <div>
+                <button class="restore-checkpoint-button" data-id="${cp.id}">Restore</button>
+                <button class="delete-checkpoint-button" data-id="${cp.id}">Delete</button>
+            </div>
+        `;
+        checkpointsListContainer.appendChild(entry);
+    });
+}
+
+export function renderChatHistory(chatMessagesContainer, history) {
+    chatMessagesContainer.innerHTML = '';
+    history.forEach(message => {
+        const sender = message.role === 'user' ? 'user' : 'ai';
+        let fullText = '';
+        message.parts.forEach(part => {
+            if (part.text) {
+                fullText += part.text;
+            }
+        });
+
+        if (fullText.trim()) {
+            appendMessage(chatMessagesContainer, fullText, sender);
+        }
+    });
+}
 export function updateTokenDisplay(requestTokens, responseTokens) {
     const display = document.getElementById('token-usage-display');
     const requestEl = document.getElementById('token-request');

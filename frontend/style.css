@@ -613,3 +613,45 @@ button:hover {
   max-height: 150px;
   overflow-y: auto;
 }
+
+/* Checkpoints Modal */
+#checkpoints-list {
+  margin-top: 1rem;
+  flex-grow: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.checkpoint-entry {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--input-bg);
+}
+
+.checkpoint-name {
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkpoint-file {
+  font-style: italic;
+  color: var(--secondary);
+}
+
+.checkpoint-timestamp {
+  font-size: 0.8em;
+  color: var(--secondary);
+}
+
+.restore-checkpoint-button, .delete-checkpoint-button {
+  justify-self: end;
+}

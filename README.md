@@ -12,7 +12,7 @@ The editor's architecture has been streamlined to use a local Node.js server, si
 
 *   **Client-Centric File Operations**: All core logic and file system interactions remain securely on the client-side in `frontend/js/main.js`. The application uses the browser's native **File System Access API**, ensuring that all file operations are handled directly and safely by the user's browser.
 
-*   **Stateful Experience with IndexedDB**: The application continues to use IndexedDB to persist user data locally, including API keys and the handle to the last used project directory.
+*   **Stateful Experience with IndexedDB**: The application uses IndexedDB to persist user data and session state locally, ensuring a seamless experience across page loads.
 
 ---
 
@@ -34,6 +34,10 @@ The editor's architecture has been streamlined to use a local Node.js server, si
 *   **AST-Powered Code Analysis**: The AI can use the `analyze_code` tool to parse JavaScript code into an Abstract Syntax Tree (AST), enabling a deep, structural understanding of the code for more precise refactoring and analysis.
 *   **Multimodal Input**: The AI chat supports both text and image uploads, allowing you to ask questions about visual content.
 *   **Multiple Agent Modes**: Switch between different AI modes (`Code`, `Plan`, `Search`) to tailor the agent's behavior to your specific needs.
+*   **Project-Wide Checkpoint System**:
+    *   **Full Session Persistence**: The application automatically saves your entire workspace state—including all open files, their content, and the full chat history—to your browser's local storage. This state is seamlessly restored when you reload the page.
+    *   **True Project Snapshots**: Before the AI performs any action that modifies your files (like creating, rewriting, or deleting), it automatically creates a complete snapshot of your entire workspace. This is not just a backup of one file, but a commit-like record of every open file's content at that moment.
+    *   **Full Restore Capabilities**: The "Checkpoints" manager now allows you to restore the entire project to a previous state. When you restore a checkpoint, the application will perfectly reset your workspace to how it was, closing any new files and re-opening any files that were part of the snapshot.
 
 ---
 

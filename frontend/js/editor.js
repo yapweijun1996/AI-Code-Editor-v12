@@ -126,7 +126,7 @@ export async function openFile(fileHandle, filePath, tabBarContainer) {
     }
 }
 
-async function switchTab(filePath, tabBarContainer) {
+export async function switchTab(filePath, tabBarContainer) {
     if (activeFilePath && openFiles.has(activeFilePath)) {
         openFiles.get(activeFilePath).viewState = editor.saveViewState();
     }
@@ -182,6 +182,19 @@ export async function saveActiveFile() {
     }
 }
 
+export async function saveAllOpenFiles() {
+    for (const [filePath, fileData] of openFiles.entries()) {
+        try {
+            const writable = await fileData.handle.createWritable();
+            await writable.write(fileData.model.getValue());
+            await writable.close();
+            console.log(`File '${fileData.name}' saved successfully.`);
+        } catch (error) {
+            console.error(`Failed to save file '${fileData.name}':`, error);
+        }
+    }
+}
+
 export function getActiveFile() {
     if (!activeFilePath) return null;
     return openFiles.get(activeFilePath);
@@ -220,4 +233,72 @@ export function getPrettierParser(filename) {
         default:
         return 'babel';
     }
+}
+
+export function getEditorState() {
+    if (activeFilePath && openFiles.has(activeFilePath)) {
+        openFiles.get(activeFilePath).viewState = editor.saveViewState();
+    }
+
+    const files = [];
+    for (const [path, data] of openFiles.entries()) {
+        files.push({
+            path: path,
+            content: data.model.getValue(),
+            viewState: data.viewState,
+        });
+    }
+
+    return {
+        openFiles: files,
+        activeFile: activeFilePath,
+    };
+}
+
+export async function restoreEditorState(state, rootHandle, tabBarContainer) {
+    if (!state || !state.openFiles) return;
+
+    for (const fileData of state.openFiles) {
+        try {
+            const fileHandle = await getFileHandleFromPath(rootHandle, fileData.path, { create: true });
+            const model = monaco.editor.createModel(
+                fileData.content,
+                getLanguageFromExtension(fileData.path.split('.').pop()),
+            );
+            openFiles.set(fileData.path, {
+                handle: fileHandle,
+                name: fileHandle.name,
+                model: model,
+                viewState: fileData.viewState,
+            });
+        } catch (error) {
+            console.error(`Could not restore file ${fileData.path}:`, error);
+        }
+    }
+
+    if (state.activeFile && openFiles.has(state.activeFile)) {
+        await switchTab(state.activeFile, tabBarContainer);
+    } else if (openFiles.size > 0) {
+        // If active file is gone, open the first available one
+        const firstFile = openFiles.keys().next().value;
+        await switchTab(firstFile, tabBarContainer);
+    } else {
+        // No files to restore, just render empty tabs
+        renderTabs(tabBarContainer, () => {}, () => {});
+    }
+}
+export async function restoreCheckpointState(state, rootHandle, tabBarContainer) {
+    // Close all current tabs without saving their state
+    const currentFiles = Array.from(openFiles.keys());
+    for (const filePath of currentFiles) {
+        const fileData = openFiles.get(filePath);
+        if (fileData && fileData.model) {
+            fileData.model.dispose();
+        }
+        openFiles.delete(filePath);
+    }
+    activeFilePath = null;
+
+    // Restore files from the checkpoint state
+    await restoreEditorState(state, rootHandle, tabBarContainer);
 }

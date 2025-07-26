@@ -34,6 +34,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const closeModalButton = contextModal.querySelector('.close-button');
     const formatButton = document.getElementById('format-button');
     const themeToggleButton = document.getElementById('theme-toggle-button');
+    const viewCheckpointsButton = document.getElementById('view-checkpoints-button');
+    const checkpointsModal = document.getElementById('checkpoints-modal');
+    const checkpointsList = document.getElementById('checkpoints-list');
+    const closeCheckpointsModalButton = checkpointsModal.querySelector('.close-button');
+    const createCheckpointButton = document.getElementById('create-checkpoint-button');
 
     // --- State ---
     let rootDirectoryHandle = null;
@@ -60,23 +65,66 @@ document.addEventListener('DOMContentLoaded', async () => {
             rootDirectoryHandle = savedHandle;
             await UI.refreshFileTree(rootDirectoryHandle, onFileSelect);
             GeminiChat.initialize(rootDirectoryHandle);
+
+            const savedState = await DbManager.getSessionState();
+            if (savedState) {
+                console.log('Restoring previous session...');
+                await Editor.restoreEditorState(savedState.editor, rootDirectoryHandle, tabBarContainer);
+                if (savedState.chat && savedState.chat.length > 0) {
+                    await GeminiChat._restartSessionWithHistory(savedState.chat);
+                    UI.renderChatHistory(chatMessages, savedState.chat);
+                }
+            }
+
         } else {
             UI.updateDirectoryButtons(false, true);
         }
     }
 
-    await tryRestoreDirectory();
-    
-    // Load rate limit settings before initializing chat
+    // --- Load settings first ---
     const savedRateLimit = localStorage.getItem('rateLimitValue') || '5';
     rateLimitSlider.value = savedRateLimit;
     rateLimitInput.value = savedRateLimit;
     GeminiChat.rateLimit = parseInt(savedRateLimit, 10) * 1000;
 
+    // CRITICAL: Load API keys before attempting to restore a session that needs them
     await ApiKeyManager.loadKeys(apiKeysTextarea);
-    await GeminiChat._startChat();
+
+    // --- Restore session and initialize chat ---
+    await tryRestoreDirectory();
+
+    // Start a new chat session if one wasn't restored
+    if (!GeminiChat.chatSession) {
+        await GeminiChat._startChat();
+    }
+
+    async function saveCurrentSession() {
+        if (!rootDirectoryHandle) return;
+
+        const editorState = Editor.getEditorState();
+        const chatHistory = GeminiChat.chatSession ? await GeminiChat.chatSession.getHistory() : [];
+
+        const sessionState = {
+            id: 'lastSession',
+            editor: editorState,
+            chat: chatHistory,
+        };
+        await DbManager.saveSessionState(sessionState);
+    }
 
     // --- Event Listeners ---
+    window.addEventListener('beforeunload', saveCurrentSession);
+
+    let saveTimeout;
+    editorContainer.addEventListener('keyup', () => {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(saveCurrentSession, 2000);
+    });
+
+    tabBarContainer.addEventListener('click', () => {
+        setTimeout(saveCurrentSession, 100);
+    });
+
     openDirectoryButton.addEventListener('click', async () => {
         try {
             rootDirectoryHandle = await window.showDirectoryPicker();
@@ -162,6 +210,68 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('click', (event) => {
         if (event.target == contextModal) {
             contextModal.style.display = 'none';
+        }
+        if (event.target == checkpointsModal) {
+            checkpointsModal.style.display = 'none';
+        }
+    });
+
+    viewCheckpointsButton.addEventListener('click', async () => {
+        const checkpoints = await DbManager.getCheckpoints();
+        UI.renderCheckpoints(checkpointsList, checkpoints);
+        checkpointsModal.style.display = 'block';
+    });
+
+    closeCheckpointsModalButton.addEventListener('click', () => {
+        checkpointsModal.style.display = 'none';
+    });
+
+    createCheckpointButton.addEventListener('click', async () => {
+        const editorState = Editor.getEditorState();
+        if (editorState.openFiles.length === 0) {
+            alert('Cannot create a checkpoint with no open files.');
+            return;
+        }
+
+        const checkpointName = prompt('Enter a name for this checkpoint:', `Checkpoint ${new Date().toLocaleString()}`);
+        if (!checkpointName) return; // User cancelled
+
+        const checkpointData = {
+            name: checkpointName,
+            editorState: editorState,
+            timestamp: Date.now(),
+        };
+
+        try {
+            await DbManager.saveCheckpoint(checkpointData);
+            alert(`Checkpoint "${checkpointName}" created successfully.`);
+            // Refresh the list
+            const checkpoints = await DbManager.getCheckpoints();
+            UI.renderCheckpoints(checkpointsList, checkpoints);
+        } catch (error) {
+            console.error('Failed to create checkpoint:', error);
+            alert('Error creating checkpoint. See console for details.');
+        }
+    });
+
+    checkpointsList.addEventListener('click', async (event) => {
+        const target = event.target;
+        if (target.classList.contains('restore-checkpoint-button')) {
+            const checkpointId = parseInt(target.dataset.id, 10);
+            const checkpoint = await DbManager.getCheckpointById(checkpointId);
+            if (checkpoint && checkpoint.editorState) {
+                await Editor.restoreCheckpointState(checkpoint.editorState, rootDirectoryHandle, tabBarContainer);
+                await Editor.saveAllOpenFiles(); // Save all restored files to disk
+                checkpointsModal.style.display = 'none';
+                alert(`Project state restored to checkpoint '${checkpoint.name}'.`);
+            }
+        } else if (target.classList.contains('delete-checkpoint-button')) {
+            const checkpointId = parseInt(target.dataset.id, 10);
+            if (confirm('Are you sure you want to delete this checkpoint?')) {
+                await DbManager.deleteCheckpoint(checkpointId);
+                const checkpoints = await DbManager.getCheckpoints();
+                UI.renderCheckpoints(checkpointsList, checkpoints);
+            }
         }
     });
 

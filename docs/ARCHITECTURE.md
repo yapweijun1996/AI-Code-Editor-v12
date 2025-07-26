@@ -49,4 +49,12 @@ sequenceDiagram
 
 ## State Management
 
-The application's state, including API keys and the handle to the open project folder, is persisted in the browser's **IndexedDB**. This allows for seamless session restoration between visits.
+The application's state is persisted entirely within the browser's **IndexedDB**, ensuring a robust and seamless user experience. The database (`CodeEditorDB`) is managed by `frontend/js/db.js` and contains several object stores:
+
+*   **`apiKeys`**: Stores the user's Gemini API keys.
+*   **`fileHandles`**: Persists the handle to the root project directory, allowing for quick reconnection.
+*   **`sessionState`**: Automatically saves the entire workspace state (open files, active tab, unsaved content, and chat history) before the page unloads. This state is restored when the application starts, preventing any loss of work.
+*   **`checkpoints`**: Stores complete, project-wide snapshots. Before the AI executes a destructive operation (like `rewrite_file` or `create_file`), it saves the entire state of the editor (all open files, their content, and view states) as a single checkpoint. This allows for a full, commit-style restore of the workspace to a previous point in time.
+*   **`codeIndex`**: Caches a searchable index of the codebase for performance.
+
+This comprehensive state management ensures that both the user's configuration and their work-in-progress are preserved across sessions.

@@ -34,13 +34,13 @@ export const GeminiChat = {
 
             const baseTools = {
                 functionDeclarations: [
-                    { name: 'create_file', description: "Creates a new file. IMPORTANT: File paths must be relative to the project root. Do NOT include the root folder's name in the path. Always use get_project_structure first to check for existing files.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' }, content: { type: 'STRING' } }, required: ['filename', 'content'] } },
-                    { name: 'delete_file', description: "Deletes a file. IMPORTANT: File paths must be relative to the project root. Do NOT include the root folder's name in the path. CRITICAL: Use get_project_structure first to ensure the file exists.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
-                    { name: 'create_folder', description: "Creates a new folder. IMPORTANT: Folder paths must be relative to the project root. Do NOT include the root folder's name in the path. Can create nested folders.", parameters: { type: 'OBJECT', properties: { folder_path: { type: 'STRING' } }, required: ['folder_path'] } },
+                    { name: 'create_file', description: "Creates a new file. CRITICAL: File paths must be relative to the project root. NEVER include the root folder's name (e.g., 'test001') in the path. For a file 'script.js' inside 'test001', the path is just 'script.js'.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' }, content: { type: 'STRING' } }, required: ['filename', 'content'] } },
+                    { name: 'delete_file', description: "Deletes a file. CRITICAL: File paths must be relative to the project root. NEVER include the root folder's name in the path.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
+                    { name: 'create_folder', description: "Creates a new folder. CRITICAL: Folder paths must be relative to the project root. NEVER include the root folder's name in the path.", parameters: { type: 'OBJECT', properties: { folder_path: { type: 'STRING' } }, required: ['folder_path'] } },
                     { name: 'delete_folder', description: 'Deletes a folder and all of its contents recursively.', parameters: { type: 'OBJECT', properties: { folder_path: { type: 'STRING' } }, required: ['folder_path'] } },
                     { name: 'rename_folder', description: 'Renames a folder. Use this tool for renaming directories.', parameters: { type: 'OBJECT', properties: { old_folder_path: { type: 'STRING' }, new_folder_path: { type: 'STRING' } }, required: ['old_folder_path', 'new_folder_path'] } },
                     { name: 'rename_file', description: 'Renames a file. Use this tool for renaming files, not directories.', parameters: { type: 'OBJECT', properties: { old_path: { type: 'STRING' }, new_path: { type: 'STRING' } }, required: ['old_path', 'new_path'] } },
-                    { name: 'read_file', description: "Reads the content of an existing file. IMPORTANT: File paths must be relative to the project root. Do NOT include the root folder's name in the path. Always use get_project_structure first to get the correct file path.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
+                    { name: 'read_file', description: "Reads the content of an existing file. CRITICAL: File paths must be relative to the project root. NEVER include the root folder's name in the path. For a file 'script.js' inside a folder 'src', the path is 'src/script.js'.", parameters: { type: 'OBJECT', properties: { filename: { type: 'STRING' } }, required: ['filename'] } },
                     { name: 'read_url', description: 'Reads and extracts the main content and all links from a given URL. The result will be a JSON object with "content" and "links" properties.', parameters: { type: 'OBJECT', properties: { url: { type: 'STRING' } }, required: ['url'] } },
                     { name: 'get_open_file_content', description: 'Gets the content of the currently open file in the editor.' },
                     { name: 'get_selected_text', description: 'Gets the text currently selected by the user in the editor.' },
@@ -280,10 +280,9 @@ export const GeminiChat = {
                     } else {
                         // This is the final turn, a text response is expected.
                         if (!fullResponseText) {
-                            // The model returned an empty response, which is a bug.
-                            // We should inform the user instead of failing silently.
-                            UI.appendMessage(chatMessages, '[AI returned an empty response. Please try again.]', 'ai');
-                            console.error('AI returned an empty response after a tool call.');
+                            const errorMessage = `[The AI model returned an empty response, which usually indicates a problem with the data it received from a tool. Please check the tool's output in the console for anything unexpected (like a file being too large or having strange content) and try your request again.]`;
+                            UI.appendMessage(chatMessages, errorMessage, 'ai');
+                            console.error('AI returned an empty response after a tool call. This is often caused by problematic tool output.');
                         }
                         running = false;
                     }

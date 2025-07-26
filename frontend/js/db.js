@@ -7,11 +7,13 @@ export const DbManager = {
         keys: 'apiKeys',
         handles: 'fileHandles',
         codeIndex: 'codeIndex',
+        sessionState: 'sessionState',
+        checkpoints: 'checkpoints',
     },
     async openDb() {
         return new Promise((resolve, reject) => {
             if (this.db) return resolve(this.db);
-            const request = indexedDB.open(this.dbName, 4); // Version 4 to fix conflict
+            const request = indexedDB.open(this.dbName, 6);
             request.onerror = () => reject('Error opening IndexedDB.');
             request.onsuccess = (event) => {
                 this.db = event.target.result;
@@ -28,6 +30,16 @@ export const DbManager = {
                 if (!db.objectStoreNames.contains(this.stores.codeIndex)) {
                     db.createObjectStore(this.stores.codeIndex, { keyPath: 'id' });
                 }
+                if (!db.objectStoreNames.contains(this.stores.sessionState)) {
+                    db.createObjectStore(this.stores.sessionState, { keyPath: 'id' });
+                }
+                if (db.objectStoreNames.contains(this.stores.checkpoints)) {
+                    db.deleteObjectStore(this.stores.checkpoints);
+                }
+                db.createObjectStore(
+                    this.stores.checkpoints,
+                    { autoIncrement: true, keyPath: 'id' },
+                );
             };
         });
     },
@@ -109,6 +121,72 @@ export const DbManager = {
             request.onerror = () => resolve(null);
             request.onsuccess = () =>
             resolve(request.result ? request.result.index : null);
+        });
+    },
+    async saveSessionState(state) {
+        const db = await this.openDb();
+        return new Promise((resolve, reject) => {
+            const request = db
+                .transaction(this.stores.sessionState, 'readwrite')
+                .objectStore(this.stores.sessionState)
+                .put(state);
+            request.onerror = () => reject('Error saving session state.');
+            request.onsuccess = () => resolve();
+        });
+    },
+    async getSessionState() {
+        const db = await this.openDb();
+        return new Promise((resolve) => {
+            const request = db
+                .transaction(this.stores.sessionState, 'readonly')
+                .objectStore(this.stores.sessionState)
+                .get('lastSession');
+            request.onerror = () => resolve(null);
+            request.onsuccess = () => resolve(request.result || null);
+        });
+    },
+    async saveCheckpoint(checkpointData) {
+        const db = await this.openDb();
+        return new Promise((resolve, reject) => {
+            const request = db
+                .transaction(this.stores.checkpoints, 'readwrite')
+                .objectStore(this.stores.checkpoints)
+                .add(checkpointData);
+            request.onerror = () => reject('Error saving checkpoint.');
+            request.onsuccess = () => resolve();
+        });
+    },
+    async getCheckpoints() {
+        const db = await this.openDb();
+        return new Promise((resolve) => {
+            const request = db
+                .transaction(this.stores.checkpoints, 'readonly')
+                .objectStore(this.stores.checkpoints)
+                .getAll();
+            request.onerror = () => resolve([]);
+            request.onsuccess = () => resolve(request.result || []);
+        });
+    },
+    async getCheckpointById(id) {
+        const db = await this.openDb();
+        return new Promise((resolve) => {
+            const request = db
+                .transaction(this.stores.checkpoints, 'readonly')
+                .objectStore(this.stores.checkpoints)
+                .get(id);
+            request.onerror = () => resolve(null);
+            request.onsuccess = () => resolve(request.result || null);
+        });
+    },
+    async deleteCheckpoint(id) {
+        const db = await this.openDb();
+        return new Promise((resolve, reject) => {
+            const request = db
+                .transaction(this.stores.checkpoints, 'readwrite')
+                .objectStore(this.stores.checkpoints)
+                .delete(id);
+            request.onerror = () => reject('Error deleting checkpoint.');
+            request.onsuccess = () => resolve();
         });
     },
 };

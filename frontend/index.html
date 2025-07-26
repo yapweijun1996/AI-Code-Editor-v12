@@ -66,6 +66,7 @@
                 </div>
               </div>
               <button id="format-button">Format Document</button>
+              <button id="view-checkpoints-button">Checkpoints</button>
               <button id="toggle-files-button">Toggle Files</button>
             </div>
           </div>
@@ -118,12 +119,21 @@
       </div>
     </div>
 
+    <div id="checkpoints-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2>Project Checkpoints</h2>
+        <button id="create-checkpoint-button">Create New Checkpoint</button>
+        <div id="checkpoints-list"></div>
+      </div>
+    </div>
+
     <!-- Load diff.js before Monaco loader to ensure Diff is globally available -->
     <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
     <!-- Monaco Editor Loader -->
     <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
-    <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
+    <script src="js/vendor/split.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@2.3.8/dist/purify.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/acorn@8.12.1/dist/acorn.min.js"></script>

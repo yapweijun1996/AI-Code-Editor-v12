@@ -66,7 +66,7 @@ The codebase is organized into two main parts: `frontend` and `backend`.
         *   `editor.js`: Manages the Monaco editor instance, tabs, and file state.
         *   `file_system.js`: An abstraction layer for the browser's File System Access API.
         *   `ui.js`: Handles all DOM manipulation, including rendering the file tree and chat messages.
-        *   `db.js`: IndexedDB manager for storing API keys and the project directory handle.
+        *   `db.js`: IndexedDB manager for storing API keys, the project directory handle, session state, and file checkpoints.
     *   `style.css`: Main styles for the application.
 
 ---
